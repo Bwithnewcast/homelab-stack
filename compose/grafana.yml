@@ -1,0 +1,37 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Grafana
+##  Function: Visual Monitoring Dashboard
+##
+##  Documentation: http://docs.grafana.org/installation/docker/
+##
+###########################################################################
+###########################################################################
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    restart: unless-stopped
+    user: ${PUID:?err}:${PGID:?err}
+    depends_on:
+      - crowdsec
+    networks:
+      - mediastack
+    ports:
+      - ${WEBUI_PORT_GRAFANA:?err}:3000
+    volumes:
+      - /var/log:/var/dockerhost:ro
+      - ${FOLDER_FOR_DATA:?err}/grafana:/var/lib/grafana
+    environment:
+      - TZ=${TIMEZONE:?err}
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.grafana.service=grafana
+      - traefik.http.routers.grafana.rule=Host(`grafana.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.grafana.entrypoints=secureweb
+      - traefik.http.routers.grafana.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.grafana.loadbalancer.server.scheme=http
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+    # MIDDLEWARES

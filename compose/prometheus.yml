@@ -1,0 +1,37 @@
+
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Prometheus
+##  Function: Systems and Service Monitoring
+##
+##  Documentation: https://prometheus.io/docs/introduction/overview/
+##
+###########################################################################
+###########################################################################
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    restart: unless-stopped
+    user: ${PUID:?err}:${PGID:?err}
+    networks:
+      - mediastack
+    depends_on:
+      - crowdsec
+    ports:
+      - 127.0.0.1:${WEBUI_PORT_PROMETHEUS:?err}:9090
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/prometheus:/prometheus
+    environment:
+      - TZ=${TIMEZONE:?err}
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.prometheus.service=prometheus
+      - traefik.http.routers.prometheus.rule=Host(`prometheus.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.prometheus.entrypoints=secureweb
+      - traefik.http.routers.prometheus.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.prometheus.loadbalancer.server.scheme=http
+      - traefik.http.services.prometheus.loadbalancer.server.port=9090
+    # MIDDLEWARES

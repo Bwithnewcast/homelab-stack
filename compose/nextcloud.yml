@@ -1,0 +1,67 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Nextcloud (LinuxServer.io)
+##  Function: Self-Hosted Cloud Storage
+##
+##  Documentation: https://nextcloud.com/install/#docker
+##
+###########################################################################
+###########################################################################
+  nextcloud-db:
+    image: lscr.io/linuxserver/mariadb:latest
+    container_name: nextcloud-db
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - MYSQL_ROOT_PASSWORD=${NEXTCLOUD_DB_ROOT_PASSWORD:?err}
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:?err}
+      - MYSQL_USER=${NEXTCLOUD_DB_USER:?err}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD:?err}
+      - TZ=${TIMEZONE:?err}
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/nextcloud-db:/config
+    network_mode: "service:gluetun"
+#    ports:
+#      - 3306:3306       # Not needed with VPN network_mode, uncomment if using host network
+    labels:
+      - traefik.enable=false
+
+  nextcloud:
+    image: lscr.io/linuxserver/nextcloud:latest
+    container_name: nextcloud
+    restart: unless-stopped
+    depends_on:
+      nextcloud-db:
+        condition: service_healthy
+        restart: true
+      gluetun:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/nextcloud:/config
+      - ${FOLDER_FOR_DATA:?err}/nextcloud-data:/data
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - UMASK=${UMASK:?err}
+      - TZ=${TIMEZONE:?err}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD:?err}
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:?err}
+      - MYSQL_USER=${NEXTCLOUD_DB_USER:?err}
+      - MYSQL_HOST=nextcloud-db
+    network_mode: "service:gluetun"
+#    ports:
+#      - ${WEBUI_PORT_NEXTCLOUD:?err}:443  # Configured in Gluetun VPN container
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.nextcloud.service=nextcloud
+      - traefik.http.routers.nextcloud.rule=Host(`nextcloud.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.nextcloud.entrypoints=secureweb
+      - traefik.http.routers.nextcloud.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.nextcloud.loadbalancer.server.scheme=http
+      - traefik.http.services.nextcloud.loadbalancer.server.port=443
+    # MIDDLEWARES

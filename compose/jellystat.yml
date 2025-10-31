@@ -1,0 +1,65 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Jellystat
+##  Function: Media Server Dashboard (with Database)
+##
+##  Documentation:
+##    Jellystat: https://jellystat.com/docs
+##
+###########################################################################
+###########################################################################
+
+  jellystat-db:
+    image: postgres:15-alpine
+    container_name: jellystat-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${JELLYSTAT_DB_USER:?err}
+      - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASSWORD:?err}
+      - POSTGRES_DB=${JELLYSTAT_DB_NAME:?err}
+      - TZ=${TIMEZONE:?err}
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/jellystat-db:/var/lib/postgresql/data
+    networks:
+      - mediastack
+
+  jellystat:
+    image: ghcr.io/jellystat/jellystat:latest
+    container_name: jellystat
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+      jellystat-db:
+        condition: service_healthy
+    volumes:
+      - ${FOLDER_FOR_MEDIA:?err}/media:/media
+      - ${FOLDER_FOR_DATA:?err}/jellystat:/config
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - UMASK=${UMASK:?err}
+      - TZ=${TIMEZONE:?err}
+      # Database connection
+      - DATABASE_HOST=jellystat-db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=${JELLYSTAT_DB_USER:?err}
+      - DATABASE_PASSWORD=${JELLYSTAT_DB_PASSWORD:?err}
+      - DATABASE_NAME=${JELLYSTAT_DB_NAME:?err}
+      - JELLYSTAT_PORT=${WEBUI_PORT_JELLYSTAT:?err}
+    network_mode: "service:gluetun"
+#    ports:
+#      - ${WEBUI_PORT_JELLYSTAT:?err}:8080          # Configured in Gluetun VPN container
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.jellystat.service=jellystat
+      - traefik.http.routers.jellystat.rule=Host(`jellystat.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.jellystat.entrypoints=secureweb
+      - traefik.http.routers.jellystat.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.jellystat.loadbalancer.server.scheme=http
+      - traefik.http.services.jellystat.loadbalancer.server.port=${WEBUI_PORT_JELLYSTAT:?err}
+    # MIDDLEWARES

@@ -1,0 +1,51 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: SearXNG (searxng/searxng)
+##  Function: Privacy-Respecting Metasearch Engine
+##
+##  Documentation: https://docs.searxng.org/admin/installation-docker.html
+##
+###########################################################################
+###########################################################################
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/searxng:/etc/searxng
+      - ${FOLDER_FOR_DATA:?err}/searxng/settings.yml:/etc/searxng/settings.yml:ro
+
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - UMASK=${UMASK:?err}
+      - TZ=${TIMEZONE:?err}
+
+      # SearXNG-specific environment options
+      - SEARXNG_BASE_URL=https://search.${CLOUDFLARE_DNS_ZONE:?err}/
+      - SEARXNG_SECRET_KEY=${SEARXNG_SECRET_KEY:?err}
+      - SEARXNG_PORT=8080
+      - SEARXNG_REDIS_URL=redis://redis:6379/0
+
+    network_mode: "service:gluetun"
+
+#    ports:
+#      - ${WEBUI_PORT_SEARXNG:?err}:8080            # Configured in Gluetun VPN container
+
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.searxng.service=searxng
+      - traefik.http.routers.searxng.rule=Host(`search.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.searxng.entrypoints=secureweb
+      - traefik.http.routers.searxng.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.searxng.loadbalancer.server.scheme=http
+      - traefik.http.services.searxng.loadbalancer.server.port=8080
+    # MIDDLEWARES

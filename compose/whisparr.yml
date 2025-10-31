@@ -1,0 +1,41 @@
+
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Whisparr (Hotio.Dev)
+##  Function: Adult Media Library Manager
+##
+##  Documentation: https://wiki.servarr.com/whisparr
+##
+###########################################################################
+###########################################################################
+  whisparr:
+    image: hotio/whisparr:nightly
+    container_name: whisparr
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ${FOLDER_FOR_MEDIA:?err}:/data
+      - ${FOLDER_FOR_DATA:?err}/whisparr:/config
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - UMASK=${UMASK:?err}
+      - TZ=${TIMEZONE:?err}
+    network_mode: "service:gluetun"
+#    ports:
+#      - ${WEBUI_PORT_WHISPARR:?err}:6969             # Configured in Gluetun VPN container
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.whisparr.service=whisparr
+      - traefik.http.routers.whisparr.rule=Host(`whisparr.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.whisparr.entrypoints=secureweb
+      - traefik.http.routers.whisparr.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.whisparr.loadbalancer.server.scheme=http
+      - traefik.http.services.whisparr.loadbalancer.server.port=6969
+    # MIDDLEWARES

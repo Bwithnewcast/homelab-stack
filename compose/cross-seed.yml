@@ -1,0 +1,51 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Cross-Seed (cross-seed/cross-seed)
+##  Function: Torrent Cross-Seeding Automation
+##
+##  Documentation: https://github.com/cross-seed/cross-seed
+##
+###########################################################################
+###########################################################################
+  cross-seed:
+    image: ghcr.io/cross-seed/cross-seed:latest
+    container_name: cross-seed
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/cross-seed:/config
+      - ${FOLDER_FOR_MEDIA:?err}/downloads:/downloads
+      - ${FOLDER_FOR_DATA:?err}/qbit/config:/qbit-config  # Path to qBittorrent config (if used)
+
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - TZ=${TIMEZONE:?err}
+
+      # Cross-Seed Configuration
+      - CROSS_SEED_CONFIG_PATH=/config/config.js
+      - CROSS_SEED_LOG_LEVEL=${CROSS_SEED_LOG_LEVEL:-info}
+      - CROSS_SEED_API_KEY=${CROSS_SEED_API_KEY:-changeme}
+      - CROSS_SEED_PORT=2468
+
+    network_mode: "service:gluetun"
+
+#    ports:
+#      - ${WEBUI_PORT_CROSSSEED:?err}:2468           # Configured in Gluetun VPN container
+
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.crossseed.service=crossseed
+      - traefik.http.routers.crossseed.rule=Host(`crossseed.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.crossseed.entrypoints=secureweb
+      - traefik.http.routers.crossseed.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.crossseed.loadbalancer.server.scheme=http
+      - traefik.http.services.crossseed.loadbalancer.server.port=2468
+    # MIDDLEWARES

@@ -1,0 +1,53 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Stirling PDF (LinuxServer.io)
+##  Function: PDF Conversion and Manipulation Suite
+##
+##  Documentation: https://github.com/Stirling-Tools/Stirling-PDF
+##
+###########################################################################
+###########################################################################
+
+  stirlingpdf:
+    image: frooodle/s-pdf:latest
+    container_name: stirlingpdf
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/stirlingpdf:/configs
+      - ${FOLDER_FOR_DATA:?err}/stirlingpdf/customFiles:/customFiles/
+      - ${FOLDER_FOR_MEDIA:?err}/media:/input
+      - ${FOLDER_FOR_MEDIA:?err}/media:/output
+
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - TZ=${TIMEZONE:?err}
+      - DOCKER_ENABLE_SECURITY=${DOCKER_ENABLE_SECURITY:-false}
+      - SYSTEM_DEFAULT_LOCALE=${SYSTEM_DEFAULT_LOCALE:-en-US}
+      - APP_HOME_NAME=${APP_HOME_NAME:-Stirling PDF}
+      - SECURITY_ENABLE_LOGIN=${SECURITY_ENABLE_LOGIN:-false}
+      - SYSTEM_SHOW_UPDATE=${SYSTEM_SHOW_UPDATE:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+    network_mode: "service:gluetun"
+
+#    ports:
+#      - ${WEBUI_PORT_STIRLINGPDF:?err}:8080           # Configured in Gluetun VPN container
+
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.stirlingpdf.service=stirlingpdf
+      - traefik.http.routers.stirlingpdf.rule=Host(`pdf.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.stirlingpdf.entrypoints=secureweb
+      - traefik.http.routers.stirlingpdf.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.stirlingpdf.loadbalancer.server.scheme=http
+      - traefik.http.services.stirlingpdf.loadbalancer.server.port=8080
+    # MIDDLEWARES

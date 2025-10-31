@@ -1,0 +1,38 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Uptime Kuma (Louislam)
+##  Function: Self-hosted uptime monitor
+##
+##  Documentation: https://github.com/louislam/uptime-kuma
+##
+###########################################################################
+###########################################################################
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/uptime-kuma:/app/data       # Persist data and config
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - TZ=${TIMEZONE:?err}
+    network_mode: "service:gluetun"
+#    ports:
+#      - ${WEBUI_PORT_UPTIMEKUMA:?err}:3001              # Configured in Gluetun VPN container
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.uptime-kuma.service=uptime-kuma
+      - traefik.http.routers.uptime-kuma.rule=Host(`uptime-kuma.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.uptime-kuma.entrypoints=secureweb
+      - traefik.http.routers.uptime-kuma.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.uptime-kuma.loadbalancer.server.scheme=http
+      - traefik.http.services.uptime-kuma.loadbalancer.server.port=3001
+    # MIDDLEWARES

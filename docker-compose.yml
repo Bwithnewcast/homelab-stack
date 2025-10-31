@@ -1,0 +1,61 @@
+###########################################################################
+###########################################################################
+networks:
+  mediastack:
+    name: mediastack
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: ${DOCKER_SUBNET:?err}
+        gateway: ${DOCKER_GATEWAY:?err}
+
+###########################################################################
+###########################################################################
+  # FRONTEND
+  - compose/headplane.yml
+  - compose/homepage.yml
+  - compose/nextcloud.yml
+  # MEDIA
+  - compose/jellyfin.yml
+  - compose/jellyseerr.yml
+  - compose/whisparr.yml
+  # Downloaders & monitoring
+  - compose/cross-seed.yml
+  - compose/autobrr.yml
+  - compose/qbittorrent.yml
+  # *arr apps
+  - compose/lidarr.yml
+  - compose/radarr.yml
+  - compose/sonarr.yml
+  - compose/huntarr.yml
+  - compose/bazarr.yml
+  - compose/flaresolverr.yml
+  - compose/prowlarr.yml
+  - compose/recomendarr.yml
+  # MONITORING
+  - compose/dozzle.yml
+  - compose/grafana.yml
+  - compose/prometheus.yml
+  # NETWORK
+  - compose/gluetun.yml
+  - compose/traefik.yml
+  - compose/traefik-cert-dumper.yml
+  - compose/ddns-updater.yml
+  - compose/crowdsec.yml
+  - compose/headscale.yml
+  - compose/tailscale.yml
+  # UTILITIES
+#  - compose/ollama.yml
+  - compose/searxng.yml
+  - compose/stirlingpdf.yml
+  - compose/syncthing.yml
+  - compose/watchtower.yml
+  - compose/uptimekuma.yml
+  - compose/paperlessngx.yml
+  # Authentication
+  - compose/authentic.yml
+  - compose/guacamole
+  #Databases & caching
+  - compose/valkey.yml
+  - compose/postgresql.yml

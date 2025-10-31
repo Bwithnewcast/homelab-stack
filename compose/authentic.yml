@@ -1,0 +1,91 @@
+
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Authentik Server & Worker
+##  Function: Authentication & Authorisation Identity Manager
+##
+##  Documentation: https://docs.goauthentik.io/docs/install-config/install/docker-compose
+##
+###########################################################################
+###########################################################################
+  authentik:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_VERSION:?err}
+    container_name: authentik
+    restart: unless-stopped
+    networks:
+      - mediastack
+    user: ${PUID:?err}:${PGID:?err}
+    command: server
+    environment:
+      - TZ=${TIMEZONE:?err}
+      - AUTHENTIK_LOG_LEVEL=info    # Options are:         # info, warning, error, debug and trace
+      - AUTHENTIK_SECRET_KEY=${AUTHENTIK_SECRET_KEY:?err}
+      - AUTHENTIK_REDIS__HOST=valkey
+      - AUTHENTIK_POSTGRESQL__HOST=postgresql
+      - AUTHENTIK_POSTGRESQL__NAME=${AUTHENTIK_DATABASE:?err}
+      - AUTHENTIK_POSTGRESQL__USER=${POSTGRESQL_USERNAME:?err}
+      - AUTHENTIK_POSTGRESQL__PASSWORD=${POSTGRESQL_PASSWORD:?err}
+      - AUTHENTIK_ERROR_REPORTING__ENABLED=${AUTHENTIK_ERROR_REPORTING__ENABLED:?err}
+      - AUTHENTIK_EMAIL__HOST=${EMAIL_SERVER_HOST}
+      - AUTHENTIK_EMAIL__PORT=${EMAIL_SERVER_PORT}
+      - AUTHENTIK_EMAIL__USERNAME=${EMAIL_ADDRESS}
+      - AUTHENTIK_EMAIL__PASSWORD=${EMAIL_PASSWORD}
+      - AUTHENTIK_EMAIL__USE_TLS=${EMAIL_TLS}
+      - AUTHENTIK_EMAIL__USE_SSL=${EMAIL_SSL}
+      - AUTHENTIK_EMAIL__FROM=${EMAIL_SENDER}
+      - AUTHENTIK_EMAIL__TIMEOUT=10
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/authentik/media:/media
+      - ${FOLDER_FOR_DATA:?err}/authentik/templates:/templates
+    ports:
+      - ${WEBUI_PORT_AUTHENTIK:?err}:9000
+    depends_on:
+      postgresql:
+        condition: service_healthy
+        restart: true
+      valkey:
+        condition: service_healthy
+        restart: true
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.authentik.service=authentik
+      - traefik.http.routers.authentik.rule=Host(`auth.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.authentik.entrypoints=secureweb
+      - traefik.http.routers.authentik.middlewares=security-headers@file,traefik-bouncer@file
+      # Do not add authentik-forwardauth@file to middlewares, otherwise other applications can't authenticate
+    # SERVICES
+      - traefik.http.services.authentik.loadbalancer.server.scheme=http
+      - traefik.http.services.authentik.loadbalancer.server.port=9000
+    # MIDDLEWARES
+
+  authentic-worker:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_VERSION:?err}
+    container_name: authentik-worker
+    restart: unless-stopped
+    networks:
+      - mediastack
+    user: ${PUID:?err}:${PGID:?err}
+    command: worker
+    environment:
+      - TZ=${TIMEZONE:?err}
+      - AUTHENTIK_SECRET_KEY=${AUTHENTIK_SECRET_KEY:?err}
+      - AUTHENTIK_REDIS__HOST=valkey
+      - AUTHENTIK_POSTGRESQL__HOST=postgresql
+      - AUTHENTIK_POSTGRESQL__NAME=${AUTHENTIK_DATABASE:?err}
+      - AUTHENTIK_POSTGRESQL__USER=${POSTGRESQL_USERNAME:?err}
+      - AUTHENTIK_POSTGRESQL__PASSWORD=${POSTGRESQL_PASSWORD:?err}
+      - AUTHENTIK_ERROR_REPORTING__ENABLED=${AUTHENTIK_ERROR_REPORTING__ENABLED:?err}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${FOLDER_FOR_DATA:?err}/authentik/certs:/certs
+      - ${FOLDER_FOR_DATA:?err}/authentik/media:/media
+      - ${FOLDER_FOR_DATA:?err}/authentik/templates:/templates
+    depends_on:
+      postgresql:
+        condition: service_healthy
+        restart: true
+      valkey:
+        condition: service_healthy
+        restart: true

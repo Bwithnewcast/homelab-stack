@@ -1,0 +1,55 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Immich (Immich App)
+##  Function: Self-Hosted Photo & Video Backup Server
+##
+##  Documentation: https://docs.immich.app/
+##
+###########################################################################
+###########################################################################
+  immich-db:
+    image: postgres:15
+    container_name: immich-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${IMMICH_DB_USER:?err}
+      - POSTGRES_PASSWORD=${IMMICH_DB_PASSWORD:?err}
+      - POSTGRES_DB=${IMMICH_DB_NAME:?err}
+      - TZ=${TIMEZONE:?err}
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/immich-db:/var/lib/postgresql/data
+    network_mode: "service:gluetun"
+
+  immich:
+    image: ghcr.io/immich-app/immich:latest
+    container_name: immich
+    restart: unless-stopped
+    depends_on:
+      immich-db:
+        condition: service_healthy
+      gluetun:
+        condition: service_healthy
+    volumes:
+      - ${FOLDER_FOR_MEDIA:?err}/immich:/app/data
+      - ${FOLDER_FOR_DATA:?err}/immich:/app/config
+    environment:
+      - DATABASE_URL=postgresql://${IMMICH_DB_USER:?err}:${IMMICH_DB_PASSWORD:?err}@immich-db:5432/${IMMICH_DB_NAME:?err}
+      - TZ=${TIMEZONE:?err}
+      - APP_PORT=${WEBUI_PORT_IMMICH:?err}
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - UMASK=${UMASK:?err}
+    network_mode: "service:gluetun"
+#    ports:
+#      - ${WEBUI_PORT_IMMICH:?err}:2283   # Immich default port, mapped through Gluetun
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.immich.service=immich
+      - traefik.http.routers.immich.rule=Host(`immich.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.immich.entrypoints=secureweb
+      - traefik.http.routers.immich.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.immich.loadbalancer.server.scheme=http
+      - traefik.http.services.immich.loadbalancer.server.port=2283

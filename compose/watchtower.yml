@@ -1,0 +1,25 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Watchtower
+##  Function: Auto-update Docker containers
+##
+##  Documentation: https://containrrr.dev/watchtower/
+##
+###########################################################################
+###########################################################################
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    network_mode: "service:gluetun"  # Uses Gluetun VPN network
+    environment:
+      - WATCHTOWER_CLEANUP=true       # Remove old images after update
+      - WATCHTOWER_SCHEDULE=0 3 * * *  # Cron: 03:00 AM every day
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_POLL_INTERVAL=86400 # 24 hours (optional, fallback)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

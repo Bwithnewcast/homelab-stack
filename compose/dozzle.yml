@@ -1,0 +1,48 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Dozzle (amir20/dozzle)
+##  Function: Real-Time Web Log Viewer for Docker Containers
+##
+##  Documentation: https://dozzle.dev/
+##
+###########################################################################
+###########################################################################
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${FOLDER_FOR_DATA:?err}/dozzle:/data
+
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - TZ=${TIMEZONE:?err}
+      - DOZZLE_LEVEL=${DOZZLE_LEVEL:-info}
+      - DOZZLE_ADDR=:8080
+      - DOZZLE_BASE=${DOZZLE_BASE:-/}
+      - DOZZLE_FILTER=${DOZZLE_FILTER:-.*}       # Regex for which containers to display
+
+    network_mode: "service:gluetun"
+
+#    ports:
+#      - ${WEBUI_PORT_DOZZLE:?err}:8080            # Configured in Gluetun VPN container
+
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.dozzle.service=dozzle
+      - traefik.http.routers.dozzle.rule=Host(`dozzle.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.dozzle.entrypoints=secureweb
+      - traefik.http.routers.dozzle.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.dozzle.loadbalancer.server.scheme=http
+      - traefik.http.services.dozzle.loadbalancer.server.port=8080
+    # MIDDLEWARES

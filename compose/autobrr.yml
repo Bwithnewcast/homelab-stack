@@ -1,0 +1,39 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Autobrr
+##  Function: Torrent Automation / RSS Downloader
+##
+##  Documentation: https://docs.autobrr.com/
+##
+###########################################################################
+###########################################################################
+  autobrr:
+    image: autobrr/autobrr:latest
+    container_name: autobrr
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/autobrr:/config
+      - ${FOLDER_FOR_MEDIA:?err}/torrents:/downloads
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - TZ=${TIMEZONE:?err}
+    network_mode: "service:gluetun"
+#    ports:
+#      - ${WEBUI_PORT_AUTOBRR:?err}:7474             # Configured in Gluetun VPN container
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.autobrr.service=autobrr
+      - traefik.http.routers.autobrr.rule=Host(`autobrr.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.autobrr.entrypoints=secureweb
+      - traefik.http.routers.autobrr.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.autobrr.loadbalancer.server.scheme=http
+      - traefik.http.services.autobrr.loadbalancer.server.port=7474
+    # MIDDLEWARES

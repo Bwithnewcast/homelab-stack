@@ -1,0 +1,43 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Paperless/ngx
+##  Function: Document Management / OCR
+##
+##  Documentation: https://paperless-ngx.readthedocs.io/en/latest/
+##
+###########################################################################
+###########################################################################
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/paperless:/usr/src/paperless/data
+      - ${FOLDER_FOR_MEDIA:?err}/documents:/usr/src/paperless/media
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - TZ=${TIMEZONE:?err}
+#      - PAPERLESS_OCR_LANGUAGE=eng               # Optional: set default OCR language
+#      - PAPERLESS_ADMIN_USER=admin               # Optional: admin username
+#      - PAPERLESS_ADMIN_PASSWORD=changeme        # Optional: admin password
+    network_mode: "service:gluetun"
+    # Optional ports if you want access outside Gluetun VPN
+#    ports:
+#      - ${WEBUI_PORT_PAPERLESS:?err}:8000
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.paperless.service=paperless
+      - traefik.http.routers.paperless.rule=Host(`paperless.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.paperless.entrypoints=secureweb
+      - traefik.http.routers.paperless.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.paperless.loadbalancer.server.scheme=http
+      - traefik.http.services.paperless.loadbalancer.server.port=8000
+    # MIDDLEWARES

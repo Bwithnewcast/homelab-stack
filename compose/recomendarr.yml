@@ -1,0 +1,39 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Recomendarr (LinuxServer.io)
+##  Function: Media Recommendation Manager
+##
+##  Documentation: https://recomendarr.kohler.io/
+##
+###########################################################################
+###########################################################################
+  recomendarr:
+    image: lscr.io/linuxserver/recomendarr:latest
+    container_name: recomendarr
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ${FOLDER_FOR_MEDIA:?err}/media:/media                 # Access to your media libraries
+      - ${FOLDER_FOR_DATA:?err}/recomendarr:/config           # Config & database
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - TZ=${TIMEZONE:?err}
+    network_mode: "service:gluetun"
+#    ports:
+#      - ${WEBUI_PORT_RECOMENDARR:?err}:3345                 # Configured in Gluetun VPN container
+    labels:
+      - traefik.enable=true
+    # ROUTERS
+      - traefik.http.routers.recomendarr.service=recomendarr
+      - traefik.http.routers.recomendarr.rule=Host(`recomendarr.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.recomendarr.entrypoints=secureweb
+      - traefik.http.routers.recomendarr.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+    # SERVICES
+      - traefik.http.services.recomendarr.loadbalancer.server.scheme=http
+      - traefik.http.services.recomendarr.loadbalancer.server.port=3345
+    # MIDDLEWARES
