@@ -1,0 +1,50 @@
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Homer (BastienWirtz)
+##  Function: Dashboard / Homepage
+##
+##  Documentation: https://github.com/bastienwirtz/homer
+##
+###########################################################################
+###########################################################################
+  homer:
+    image: b4bz/homer:latest
+    container_name: homer
+    restart: unless-stopped
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+
+    volumes:
+      - ${FOLDER_FOR_DATA:?err}/homer:/www/assets
+
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - TZ=${TIMEZONE:?err}
+      # Optional: Set Homer to run in debug mode
+      # - DEBUG=true
+
+    network_mode: "service:gluetun"
+#    ports:
+#      - ${WEBUI_PORT_HOMER:?err}:8080             # Configured in Gluetun VPN container
+
+    labels:
+      - traefik.enable=true
+
+    # ROUTERS
+      - traefik.http.routers.homer.service=homer
+      - traefik.http.routers.homer.rule=Host(`homer.${CLOUDFLARE_DNS_ZONE:?err}`)
+      - traefik.http.routers.homer.entrypoints=secureweb
+      - traefik.http.routers.homer.middlewares=authentik-forwardauth@file,security-headers@file,traefik-bouncer@file
+
+    # SERVICES
+      - traefik.http.services.homer.loadbalancer.server.scheme=http
+      - traefik.http.services.homer.loadbalancer.server.port=8080
+
+    # MIDDLEWARES
+      # - authentik-forwardauth@file
+      # - security-headers@file
+      # - traefik-bouncer@file
