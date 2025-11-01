@@ -49,6 +49,7 @@
       - ${WEBUI_PORT_UPTIMEKUMA:?err}:3001    # WebUI Portal: Uptimekuma
       - ${WEBUI_PORT_AUTOBRR:?err}:7474       # WebUI Portal: Autobrr
       - ${WEBUI_PORT_PAPERLESS:?err}:8000     # WebUI Portal: Paperless-ngx
+      - ${WEBUI_PORT_HOMER:?err}:8080         # WebUI Portal: Homer
 
 
       - ${WEBUI_PORT_QBITTORRENT:?err}:${WEBUI_PORT_QBITTORRENT:?err}   # WebUI Portal: qBittorrent
