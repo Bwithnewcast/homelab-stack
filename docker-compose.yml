@@ -16,6 +16,7 @@ networks:
   - compose/headplane.yml
   - compose/homepage.yml
   - compose/nextcloud.yml
+  - compose/homer.yml
   # MEDIA
   - compose/jellyfin.yml
   - compose/jellyseerr.yml
